@@ -20,7 +20,7 @@ services:
     image: postgres:15
     env_file: .env
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -29,6 +29,20 @@ services:
     env_file: .env
     depends_on: [kafka]
     restart: on-failure
+
+  detector:
+    build: ./detector
+    env_file: .env
+    depends_on: [kafka, postgres]
+    restart: on-failure
+
+  api:
+    build: ./api
+    env_file: .env
+    depends_on: [postgres]
+    ports:
+      - "8000:8000"
+    restart: on-failure   
 
 volumes:
   pgdata:
