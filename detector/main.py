@@ -1,4 +1,4 @@
-import json, os, psycopg2
+import json, os, psycopg2, time
 from kafka import KafkaConsumer
 from datetime import datetime, timezone
 
@@ -40,13 +40,20 @@ def detect_fraud(tx):
     card_last_seen[card] = now
     return reasons
 
-consumer = KafkaConsumer(
-    TOPIC, bootstrap_servers=KAFKA_BROKER,
-    value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-    auto_offset_reset="earliest", group_id="fraud-detector"
-)
+# Wait for Kafka to be ready
+while True:
+    try:
+        consumer = KafkaConsumer(
+            TOPIC, bootstrap_servers=KAFKA_BROKER,
+            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+            auto_offset_reset="earliest", group_id="fraud-detector"
+        )
+        print("Detector running — watching for fraud...")
+        break
+    except Exception as e:
+        print(f"Kafka not ready yet, retrying in 5s... ({e})")
+        time.sleep(5)
 
-print("Detector running — watching for fraud...")
 for msg in consumer:
     tx = msg.value
     reasons = detect_fraud(tx)

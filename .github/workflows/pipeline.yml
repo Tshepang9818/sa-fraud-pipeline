@@ -1,0 +1,62 @@
+name: SA Fraud Pipeline CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install detector deps
+        run: |
+          cd detector
+          pip install -r requirements.txt
+
+      - name: Run fraud detection tests
+        run: |
+          cd detector
+          pytest test_detector.py -v
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push simulator
+        uses: docker/build-push-action@v5
+        with:
+          context: ./simulator
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/sa-fraud-simulator:latest
+
+      - name: Build & push detector
+        uses: docker/build-push-action@v5
+        with:
+          context: ./detector
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/sa-fraud-detector:latest
+
+      - name: Build & push api
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/sa-fraud-api:latest
